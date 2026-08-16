@@ -11,8 +11,10 @@ Legend: `[ ]` pending · `[x]` done
 | 0.1 | Define research question | [x] |
 | 0.2 | Define study area | [x] |
 | 0.3 | Define datasets | [x] |
-| 0.4 | Document methodology | [ ] |
-| 0.5 | Define limitations before analysis begins | [ ] |
+| 0.4 | Document methodology | [x] |
+| 0.5 | Define limitations before analysis begins | [x] |
+
+**Phase 0 complete.** Next: Phase 1 — Application Foundation.
 
 ## Phase 1 — Application Foundation
 
@@ -163,3 +165,5 @@ Legend: `[ ]` pending · `[x]` done
 | 2026-08-16 | 0.1 | Defined the research question (primary + supporting questions, objectives, hypotheses). See `docs/01_research_question.md`. |
 | 2026-08-16 | 0.2 | Defined the study area: Lagos State (20 LGAs, 5 divisions), rationale, climate, physical setting, analysis units, and recorded analytical-extent decisions. See `docs/02_study_area.md`. |
 | 2026-08-16 | 0.3 | Defined datasets: Landsat 8/9 C2 L2 (path 191/055), GADM/HDX boundaries + OSM neighborhoods, ESA WorldCover, GHSL (optional), SRTM (optional), NOAA ISD (optional). See `docs/03_datasets.md`. |
+| 2026-08-16 | 0.4 | Documented the methodology: end-to-end workflow, CRS choices (UTM 31N analysis / WGS84 delivery), equations (NDVI, NDBI, LST scaling), spatial statistics plan, hotspot thresholds approach, validation strategy. See `docs/04_methodology.md`. |
+| 2026-08-16 | 0.5 | Documented limitations before analysis: data, algorithm, statistical, scope, and reproducibility limits with mitigations. See `docs/05_limitations.md`. Phase 0 complete. |
