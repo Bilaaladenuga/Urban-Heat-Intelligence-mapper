@@ -15,6 +15,19 @@ npm run build     # production build
 npm run lint
 ```
 
+### On this Windows machine: use the helper script
+
+The npm registry is very slow from this network and npm's postinstall scripts
+crash on Windows here, so a plain `npm install` may fail or take forever. Use:
+
+```bash
+bash scripts/npm-install-win.sh apps/web
+```
+
+This installs **offline from the local npm cache**, skips postinstall scripts
+(nothing in the tree needs them), kills stale processes holding file locks, and
+retries until the install completes. See the script header for details.
+
 ## API proxy
 
 Requests to `/api/*` in the browser are proxied by Next.js rewrites to the
