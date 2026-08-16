@@ -23,7 +23,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
-from app.services.boundaries import extract_state
+from app.services.boundaries import extract_lgas, extract_state
 
 # Resource: nga_admin_boundaries.geojson.zip (GeoJSON)
 HDX_URL = (
@@ -36,6 +36,7 @@ OUT_RAW_DIR = ROOT / "data" / "raw" / "boundaries"
 OUT_PROCESSED_DIR = ROOT / "data" / "processed" / "boundaries"
 OUT_RAW_ZIP = OUT_RAW_DIR / "nga_admin_boundaries.geojson.zip"
 OUT_GEOJSON = OUT_PROCESSED_DIR / "lagos_state.geojson"
+OUT_LGAS_GEOJSON = OUT_PROCESSED_DIR / "lagos_lgas.geojson"
 
 
 def main() -> int:
@@ -72,6 +73,24 @@ def main() -> int:
     # Quick validation of the geometry.
     geom_type = lagos["geometry"]["type"]
     print(f"    geometry type: {geom_type}")
+
+    # --- LGA layer (Task 2.2) ---
+    print("==> Extracting admin-2 (LGA) layer")
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        with zf.open("nga_admin2.geojson") as f:
+            lgas = json.load(f)
+
+    lagos_lgas = extract_lgas(lgas, STATE_NAME)
+    print(f"    {len(lagos_lgas)} LGAs in {STATE_NAME}")
+    if not lagos_lgas:
+        print(f"ERROR: no LGAs found for {STATE_NAME!r}")
+        return 1
+
+    OUT_LGAS_GEOJSON.write_text(
+        json.dumps({"type": "FeatureCollection", "features": lagos_lgas}),
+        encoding="utf-8",
+    )
+    print(f"==> Wrote {OUT_LGAS_GEOJSON}")
     return 0
 
 

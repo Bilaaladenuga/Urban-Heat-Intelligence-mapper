@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.core import db
 from app.core.config import settings
 from app.main import app
-from app.services.boundaries import extract_state, feature_to_feature_collection
+from app.services.boundaries import extract_lgas, extract_state, feature_to_feature_collection
 
 client = TestClient(app)
 
@@ -76,6 +76,16 @@ def test_extract_state_missing_returns_none() -> None:
     assert extract_state(_sample_states(), "Kano") is None
 
 
+def test_extract_lgas_returns_only_child_rows() -> None:
+    lgas = extract_lgas(_sample_states(), "Lagos")
+    assert len(lgas) == 1
+    assert lgas[0]["properties"]["adm2_name"] == "Ikeja"
+
+
+def test_extract_lgas_empty_for_other_state() -> None:
+    assert extract_lgas(_sample_states(), "Ogun") == []
+
+
 def test_feature_collection_wraps_single_feature() -> None:
     fc = feature_to_feature_collection(_sample_states()["features"][1])
     assert fc["type"] == "FeatureCollection"
@@ -100,3 +110,15 @@ def test_city_boundary_returns_geojson_live() -> None:
     props = body["features"][0]["properties"]
     assert props.get("adm1_name") == "Lagos"
     assert body["features"][0]["geometry"]["type"] in ("Polygon", "MultiPolygon")
+
+
+@pytest.mark.skipif(not db.is_configured(), reason="SUPABASE_DB_URL not set")
+def test_lgas_returns_twenty_features_live() -> None:
+    """Integration check: all 20 Lagos LGAs are served."""
+    response = client.get("/api/v1/boundaries/lgas")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "FeatureCollection"
+    assert len(body["features"]) == 20
+    names = {f["properties"]["adm2_name"] for f in body["features"]}
+    assert "Ikeja" in names and "Eti-Osa" in names and "Badagry" in names

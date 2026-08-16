@@ -28,9 +28,27 @@ def extract_state(feature_collection: dict, state_name: str) -> dict | None:
     return None
 
 
+def extract_lgas(feature_collection: dict, state_name: str) -> list[dict]:
+    """Return all admin-2 (LGA) features belonging to ``state_name``."""
+    return [
+        feature
+        for feature in feature_collection.get("features", [])
+        if feature.get("properties", {}).get("adm1_name") == state_name
+        and feature.get("properties", {}).get("adm2_name")
+    ]
+
+
 def feature_to_feature_collection(feature: dict) -> dict:
     """Wrap a single feature in a GeoJSON FeatureCollection."""
     return {"type": "FeatureCollection", "features": [feature]}
+
+
+# Admin-level columns used for name/pcode per ``admin_units.level``.
+_LEVEL_PROPS: dict[str, tuple[str, str]] = {
+    "state": ("adm1_name", "adm1_pcode"),
+    "lga": ("adm2_name", "adm2_pcode"),
+    "neighborhood": ("adm3_name", "adm3_pcode"),
+}
 
 
 def upsert_admin_unit(
@@ -49,9 +67,10 @@ def upsert_admin_unit(
     if geometry is None:
         raise ValueError("feature has no geometry")
 
-    name = props.get("adm1_name") or props.get("adm0_name")
+    name_key, pcode_key = _LEVEL_PROPS[level]
+    name = props.get(name_key) or props.get("adm1_name") or props.get("adm0_name")
     if not name:
-        raise ValueError("feature has no adm1_name/adm0_name")
+        raise ValueError(f"feature has no {name_key}")
 
     sql = """
         INSERT INTO boundaries.admin_units
@@ -73,7 +92,7 @@ def upsert_admin_unit(
                 (
                     level,
                     name,
-                    props.get("adm1_pcode"),
+                    props.get(pcode_key),
                     props.get("area_sqkm"),
                     source,
                     json.dumps(props, default=str),

@@ -25,6 +25,8 @@
 | Lagos State boundary | 1 | Primary AOI for raster clipping and map extent |
 | Divisions | 5 | Context (Ikeja, Badagry, Ikorodu, Lagos Island, Epe) |
 | Local Government Areas (LGAs) | 20 | Main unit for zonal statistics (LST/NDVI/built-up per LGA) |
+
+> **Loaded (Task 2.2):** all 20 Lagos LGAs (pcodes NG025001–NG025020) in `boundaries.admin_units`, level `lga`, from the same HDX COD-AB source. Combined LGA area 3488.2 km² vs state 3671.5 km² — the ~183 km² difference is lagoon/water inside the state boundary but outside LGA polygons (consistent with the water-masking decision).
 | LCDAs / neighborhoods | 37 | Finer display layer; neighborhood-level insights (Phase 2) |
 
 ## Climate context
