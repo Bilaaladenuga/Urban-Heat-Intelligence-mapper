@@ -35,7 +35,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Task | Description | Status |
 |------|-------------|--------|
-| 2.1 | City boundary in PostGIS | [ ] |
+| 2.1 | City boundary in PostGIS | [x] |
 | 2.2 | Administrative boundaries in PostGIS | [ ] |
 | 2.3 | Neighborhoods in PostGIS | [ ] |
 | 2.4 | Display boundaries on map | [ ] |
@@ -176,5 +176,6 @@ Legend: `[ ]` pending · `[x]` done
 | 2026-08-16 | 1.3/1.4 (done) | **Live connection verified.** Project connects via shared pooler `aws-1-eu-west-1.pooler.supabase.com` (new `aws-1-*` host format; `aws-0-*` returns "tenant not found"; direct `db.<ref>` host is IPv6-only and unreachable from this network). Migration `001_enable_postgis.sql` applied; PostGIS 3.3 confirmed via `/api/v1/health/db`. Test suite: 7 passed (live-DB test now runs). Format documented in `apps/api/.env.example` + `scripts/apply_migrations.py` added. |
 | 2026-08-16 | 0.5 | Documented limitations before analysis: data, algorithm, statistical, scope, and reproducibility limits with mitigations. See `docs/05_limitations.md`. Phase 0 complete. |
 | 2026-08-16 | 1.5/1.6 | Documentation and testing built into each task: `docs/01`–`05`, per-app READMEs, `PROJECT_SPEC.md`, `PROGRESS.md`; API pytest suite (7 passing), ruff lint, web `next build` + lint clean. Phase 1 complete. |
+| 2026-08-16 | 2.1 | Lagos State boundary loaded into PostGIS. Source: OCHA HDX COD-AB (`nga_admin_boundaries.geojson.zip`, CC BY-IGO; GADM unreachable from dev network). Pipeline: `scripts/fetch_lagos_boundary.py` (download + extract state layer) → `database/migrations/002_city_boundary.sql` (`boundaries.admin_units` table: state/LGA/neighborhood, EPSG:4326, GIST index) → `scripts/load_boundaries.py` (upsert). Service layer `app/services/boundaries.py` + endpoint `GET /api/v1/boundaries/city` (GeoJSON). Verified: source area 3671.5 km² matches geometry area, `ST_IsValid`, bbox 2.7022–4.3508°E / 6.3708–6.6984°N; 13/13 tests pass. |
 | 2026-08-16 | tooling | Added `scripts/npm-install-win.sh` — reusable installer encoding this machine's npm workarounds (offline-from-cache, `--ignore-scripts` for the crashing postinstalls, stale-process kill, retry-until-complete). Documented in `apps/web/README.md`. Verified: completes in seconds on an already-installed tree. |
 | 2026-08-16 | 1.1 | Next.js application in `apps/web/`: Next.js 16 App Router + TypeScript + Tailwind 4 + MapLibre GL (v4). Map page centered on Lagos (OSM basemap, nav controls), API health indicator driven by proxied `/api/v1/health` (Next rewrites → `API_URL`, default localhost:8000), metadata + README. Verified: `npm run build` passes, `next start` serves HTTP 200 with map content. Notable: npm registry extremely slow on this machine + Windows file-lock/antivirus issues (ENOTEMPTY during `next` extraction, postinstall crash 0xC0000142) — resolved via `--ignore-scripts` + cache; documented in web README. |

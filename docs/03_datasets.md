@@ -34,7 +34,7 @@ Data rules: raw downloads → `data/raw/` (gitignored); processed rasters → `d
 | Lagos State boundary + LGAs | GADM (gadm.org) or OCHA/HDX Nigeria Admin 2 | GeoPackage/GeoJSON, EPSG:4326 | AOI, zonal statistics units |
 | Neighborhoods / LCDAs | OpenStreetMap (Geofabrik Nigeria extract) | Boundary relations / place polygons | Neighborhood display layer (Phase 2) |
 
-License: GADM free for non-commercial use; OSM ODbL (attribution required). Final boundary source chosen in Phase 2.
+License: GADM free for non-commercial use; OSM ODbL (attribution required). **Source chosen in Phase 2: OCHA HDX COD-AB** (CC BY-IGO) — `nga_admin_boundaries.geojson.zip` provides admin-0..3 (37 states, 774 LGAs) in one file; fetched via `scripts/fetch_lagos_boundary.py`.
 
 ### 3. Land cover
 

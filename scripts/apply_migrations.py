@@ -13,7 +13,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
-from app.core import db  # noqa: E402
+from app.core import db
 
 
 def main() -> None:
@@ -28,9 +28,8 @@ def main() -> None:
 
     for path in migrations:
         sql = path.read_text(encoding="utf-8")
-        with db.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql)
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute(sql)
         print(f"applied  {path.name}")
 
 

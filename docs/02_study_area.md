@@ -47,5 +47,6 @@
 
 ## Open items (resolved in Phase 2)
 
-- Source of the official boundary (GADM vs OCHA/HDX) — decided in Phase 2 when the geometry is loaded into PostGIS.
-- Final confirmation of the exact bounding box from the chosen boundary dataset.
+- **Boundary source: OCHA HDX COD-AB** (`nga_admin_boundaries.geojson.zip`, CC BY-IGO) — GADM's server was unreachable from the development network; HDX worked and provides state + LGA + ward levels in one download. Loaded into PostGIS (Task 2.1): `boundaries.admin_units`, Lagos pcode `NG025`.
+- **Confirmed bounding box** (from the loaded geometry, EPSG:4326): lon 2.7022–4.3508°E, lat 6.3708–6.6984°N. Source area 3671.5 km² matches the geometry-computed area; geometry passes `ST_IsValid`.
+- Neighborhoods layer (OSM) still to be sourced in Task 2.3.
