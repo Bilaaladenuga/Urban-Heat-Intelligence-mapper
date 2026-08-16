@@ -1,9 +1,10 @@
-"""Health check endpoint."""
+"""Health check endpoints."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
+from app.core import db
 from app.core.config import settings
 
 router = APIRouter()
@@ -17,5 +18,16 @@ def health() -> dict:
         "app": settings.app_name,
         "version": "0.1.0",
         "environment": settings.environment,
-        "time": datetime.now(timezone.utc).isoformat(),
+        "database": "configured" if db.is_configured() else "not_configured",
+        "time": datetime.now(UTC).isoformat(),
+    }
+
+
+@router.get("/health/db")
+def health_db() -> dict:
+    """PostGIS connectivity check (does not fail when the DB is unconfigured)."""
+    return {
+        "status": "ok",
+        "database": "configured" if db.is_configured() else "not_configured",
+        "postgis": db.postgis_version() if db.is_configured() else None,
     }
