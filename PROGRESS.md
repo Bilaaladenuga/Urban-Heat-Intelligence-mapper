@@ -22,8 +22,8 @@ Legend: `[ ]` pending · `[x]` done
 |------|-------------|--------|
 | 1.1 | Next.js application | [ ] |
 | 1.2 | FastAPI application | [x] |
-| 1.3 | Supabase connection | [ ] (code ready, awaiting credentials) |
-| 1.4 | PostGIS setup | [ ] (migration ready, awaiting credentials) |
+| 1.3 | Supabase connection | [x] |
+| 1.4 | PostGIS setup | [x] |
 | 1.5 | Project documentation | [ ] |
 | 1.6 | Testing foundation | [ ] |
 
@@ -171,4 +171,5 @@ Legend: `[ ]` pending · `[x]` done
 | 2026-08-16 | 0.4 (rev) | Expanded `docs/04_methodology.md`: LST basis rationale (C2 L2 ST_B10 vs avoided TOA path), acquisition sampling design, NDVI value validation, spatial-analysis sampling design (pixel vs LGA units, autocorrelation mitigation), full hotspot category table, temporal valid-pixel consistency, and per-scene QC checklist. |
 | 2026-08-16 | 1.2 | FastAPI application skeleton in `apps/api/`: app factory, settings (pydantic-settings + .env), versioned router, health endpoint, CORS, pytest suite (3 tests passing on Python 3.11). Supabase/PostGIS placeholders in config, to be wired in 1.3/1.4. Built before 1.1 per user preference. |
 | 2026-08-16 | 1.3/1.4 (code) | Supabase/PostGIS layer implemented: psycopg connection helpers (`app/core/db.py`), `/api/v1/health/db` endpoint, migration `001_enable_postgis.sql`, dev tooling (ruff, requirements-dev). Tests: 6 passed, 1 skipped (live-DB test). **Pending:** real credentials to verify connection — then 1.3/1.4 are marked done. |
+| 2026-08-16 | 1.3/1.4 (done) | **Live connection verified.** Project connects via shared pooler `aws-1-eu-west-1.pooler.supabase.com` (new `aws-1-*` host format; `aws-0-*` returns "tenant not found"; direct `db.<ref>` host is IPv6-only and unreachable from this network). Migration `001_enable_postgis.sql` applied; PostGIS 3.3 confirmed via `/api/v1/health/db`. Test suite: 7 passed (live-DB test now runs). Format documented in `apps/api/.env.example` + `scripts/apply_migrations.py` added. |
 | 2026-08-16 | 0.5 | Documented limitations before analysis: data, algorithm, statistical, scope, and reproducibility limits with mitigations. See `docs/05_limitations.md`. Phase 0 complete. |
