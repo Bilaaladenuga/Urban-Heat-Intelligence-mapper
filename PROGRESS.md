@@ -21,11 +21,13 @@ Legend: `[ ]` pending · `[x]` done
 | Task | Description | Status |
 |------|-------------|--------|
 | 1.1 | Next.js application | [ ] |
-| 1.2 | FastAPI application | [ ] |
+| 1.2 | FastAPI application | [x] |
 | 1.3 | Supabase connection | [ ] |
 | 1.4 | PostGIS setup | [ ] |
 | 1.5 | Project documentation | [ ] |
 | 1.6 | Testing foundation | [ ] |
+
+> **Ordering note (user preference):** backend (1.2) is built before frontend (1.1). Supabase/PostGIS (1.3/1.4) are the database layer behind the API and come next; the frontend consumes the API, never Supabase directly.
 
 ## Phase 2 — Study Area
 
@@ -167,4 +169,5 @@ Legend: `[ ]` pending · `[x]` done
 | 2026-08-16 | 0.3 | Defined datasets: Landsat 8/9 C2 L2 (path 191/055), GADM/HDX boundaries + OSM neighborhoods, ESA WorldCover, GHSL (optional), SRTM (optional), NOAA ISD (optional). See `docs/03_datasets.md`. |
 | 2026-08-16 | 0.4 | Documented the methodology: end-to-end workflow, CRS choices (UTM 31N analysis / WGS84 delivery), equations (NDVI, NDBI, LST scaling), spatial statistics plan, hotspot thresholds approach, validation strategy. See `docs/04_methodology.md`. |
 | 2026-08-16 | 0.4 (rev) | Expanded `docs/04_methodology.md`: LST basis rationale (C2 L2 ST_B10 vs avoided TOA path), acquisition sampling design, NDVI value validation, spatial-analysis sampling design (pixel vs LGA units, autocorrelation mitigation), full hotspot category table, temporal valid-pixel consistency, and per-scene QC checklist. |
+| 2026-08-16 | 1.2 | FastAPI application skeleton in `apps/api/`: app factory, settings (pydantic-settings + .env), versioned router, health endpoint, CORS, pytest suite (3 tests passing on Python 3.11). Supabase/PostGIS placeholders in config, to be wired in 1.3/1.4. Built before 1.1 per user preference. |
 | 2026-08-16 | 0.5 | Documented limitations before analysis: data, algorithm, statistical, scope, and reproducibility limits with mitigations. See `docs/05_limitations.md`. Phase 0 complete. |
