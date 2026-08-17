@@ -69,6 +69,20 @@ Run from the repository root with the project venv
 | Region | Lagos State boundary (`data/processed/boundaries/lagos_state.geojson`, Phase 2) |
 | Destination | Google Drive folder `urban_heat_intelligence` |
 
+## Downloading the exports
+
+Once the GEE tasks finish, the cloud-optimized GeoTIFFs appear in the Drive
+folder `urban_heat_intelligence/` (one file per band, named
+`{scene_id}.{BAND}.tif`). Move them locally, one folder per scene, matching
+the metadata records:
+
+```text
+data/raw/imagery/{scene_id}/   # e.g. data/raw/imagery/LC09_191055_20221219/
+```
+
+`data/raw/` is gitignored, so imagery is never committed. Phase 4
+(preprocessing) reads these files.
+
 ## Metadata record (per scene)
 
 Written to `data/processed/imagery/{scene_id}.json`, with a run manifest at
