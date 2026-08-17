@@ -23,7 +23,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
-from app.services.boundaries import extract_lgas, extract_state
+from app.services.boundaries import extract_lgas, extract_state  # noqa: E402
 
 # Resource: nga_admin_boundaries.geojson.zip (GeoJSON)
 HDX_URL = (

@@ -61,3 +61,18 @@ def get_lgas() -> dict:
             detail="No LGA boundaries loaded. Run scripts/load_boundaries.py --level lga first.",
         )
     return {"type": "FeatureCollection", "features": features}
+
+
+@router.get("/boundaries/neighborhoods")
+def get_neighborhoods() -> dict:
+    """Return all Lagos neighborhoods as a GeoJSON FeatureCollection."""
+    features = _query_admin_units("neighborhood")
+    if not features:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "No neighborhoods loaded. Run scripts/load_boundaries.py "
+                "--level neighborhood first."
+            ),
+        )
+    return {"type": "FeatureCollection", "features": features}

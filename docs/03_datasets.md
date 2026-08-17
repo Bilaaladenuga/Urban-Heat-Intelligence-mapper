@@ -32,9 +32,9 @@ Data rules: raw downloads → `data/raw/` (gitignored); processed rasters → `d
 | Dataset | Source | Detail | Use |
 |---------|--------|--------|-----|
 | Lagos State boundary + LGAs | GADM (gadm.org) or OCHA/HDX Nigeria Admin 2 | GeoPackage/GeoJSON, EPSG:4326 | AOI, zonal statistics units |
-| Neighborhoods / LCDAs | OpenStreetMap (Geofabrik Nigeria extract) | Boundary relations / place polygons | Neighborhood display layer (Phase 2) |
+| Neighborhoods | OpenStreetMap via Overpass API (`place = suburb | neighbourhood | quarter` in the state bbox) | Points + closed-way polygons | Neighborhood display layer (Task 2.3) |
 
-License: GADM free for non-commercial use; OSM ODbL (attribution required). **Source chosen in Phase 2: OCHA HDX COD-AB** (CC BY-IGO) — `nga_admin_boundaries.geojson.zip` provides admin-0..3 (37 states, 774 LGAs) in one file; fetched via `scripts/fetch_lagos_boundary.py`.
+License: GADM free for non-commercial use; OSM ODbL (attribution required). **Source chosen in Phase 2: OCHA HDX COD-AB** (CC BY-IGO) — `nga_admin_boundaries.geojson.zip` provides admin-0..3 (37 states, 774 LGAs) in one file; fetched via `scripts/fetch_lagos_boundary.py`. **Neighborhoods (Task 2.3): OSM via Overpass** — fetched by `scripts/fetch_lagos_neighborhoods.py`, clipped to the Lagos boundary (81 features loaded). Note: the HDX admin-3 (ward) layer contains no Lagos wards, and LCDA boundaries are not reliably available in either source, so OSM named places are the neighborhood layer.
 
 ### 3. Land cover
 

@@ -19,8 +19,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
-from app.core import db
-from app.services.boundaries import upsert_admin_unit
+from app.core import db  # noqa: E402
+from app.services.boundaries import upsert_admin_unit  # noqa: E402
 
 DEFAULT_FILE = ROOT / "data" / "processed" / "boundaries" / "lagos_state.geojson"
 
@@ -51,9 +51,13 @@ def main() -> int:
 
     print(f"==> Loading {len(features)} feature(s) from {path} (level={args.level})")
     inserted = 0
-    for feature in features:
-        if upsert_admin_unit(feature, level=args.level, source=args.source):
-            inserted += 1
+    # One connection for the whole batch — opening a connection per
+    # feature is slow over the Supabase pooler (Task 2.3 lesson).
+    with db.connect() as conn:
+        for feature in features:
+            if upsert_admin_unit(feature, level=args.level, source=args.source, conn=conn):
+                inserted += 1
+        conn.commit()
     print(f"==> Done: {inserted} upserted.")
     return 0
 

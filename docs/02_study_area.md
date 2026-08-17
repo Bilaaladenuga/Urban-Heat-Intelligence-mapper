@@ -25,9 +25,11 @@
 | Lagos State boundary | 1 | Primary AOI for raster clipping and map extent |
 | Divisions | 5 | Context (Ikeja, Badagry, Ikorodu, Lagos Island, Epe) |
 | Local Government Areas (LGAs) | 20 | Main unit for zonal statistics (LST/NDVI/built-up per LGA) |
+| Neighborhoods (OSM named places) | 81 | Finer display layer; neighborhood-level context (Phase 2) |
 
 > **Loaded (Task 2.2):** all 20 Lagos LGAs (pcodes NG025001–NG025020) in `boundaries.admin_units`, level `lga`, from the same HDX COD-AB source. Combined LGA area 3488.2 km² vs state 3671.5 km² — the ~183 km² difference is lagoon/water inside the state boundary but outside LGA polygons (consistent with the water-masking decision).
-| LCDAs / neighborhoods | 37 | Finer display layer; neighborhood-level insights (Phase 2) |
+>
+> **Loaded (Task 2.3):** 81 named neighborhoods (77 suburb/neighbourhood points + 4 polygon boundaries) from OpenStreetMap via the Overpass API, clipped to the state boundary. Stored at level `neighborhood`, source `osm_overpass`. Note: the earlier plan of 37 LCDAs was revised to OSM named places — LCDA boundaries are not published in the HDX COD-AB or reliably mapped in OSM; OSM `place=suburb|neighbourhood|quarter` provides a consistent, attributable display layer instead.
 
 ## Climate context
 
@@ -51,4 +53,4 @@
 
 - **Boundary source: OCHA HDX COD-AB** (`nga_admin_boundaries.geojson.zip`, CC BY-IGO) — GADM's server was unreachable from the development network; HDX worked and provides state + LGA + ward levels in one download. Loaded into PostGIS (Task 2.1): `boundaries.admin_units`, Lagos pcode `NG025`.
 - **Confirmed bounding box** (from the loaded geometry, EPSG:4326): lon 2.7022–4.3508°E, lat 6.3708–6.6984°N. Source area 3671.5 km² matches the geometry-computed area; geometry passes `ST_IsValid`.
-- Neighborhoods layer (OSM) still to be sourced in Task 2.3.
+- **Neighborhoods (Task 2.3): OpenStreetMap via Overpass API** — `place = suburb | neighbourhood | quarter` queried within the state bbox, clipped to the Lagos boundary with shapely. 81 features loaded (77 points, 4 polygons). Script: `scripts/fetch_lagos_neighborhoods.py` (mirror fallback: overpass-api.de → kumi → mail.ru → osm.ch). License: ODbL (attribution recorded per feature: `osm_type`/`osm_id`).

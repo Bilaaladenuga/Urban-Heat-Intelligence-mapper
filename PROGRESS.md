@@ -37,7 +37,7 @@ Legend: `[ ]` pending · `[x]` done
 |------|-------------|--------|
 | 2.1 | City boundary in PostGIS | [x] |
 | 2.2 | Administrative boundaries in PostGIS | [x] |
-| 2.3 | Neighborhoods in PostGIS | [ ] |
+| 2.3 | Neighborhoods in PostGIS | [x] |
 | 2.4 | Display boundaries on map | [ ] |
 
 ## Phase 3 — Landsat Pipeline
@@ -166,6 +166,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Date | Task | Summary |
 |------|------|---------|
+| 2026-08-17 | 2.3 | 81 Lagos neighborhoods loaded into PostGIS from OpenStreetMap (Overpass API, `place=suburb\|neighbourhood\|quarter`, clipped to the state boundary with shapely): 77 points + 4 polygons (Eko Atlantic, Badia East, Bariga, Banana Island), all valid. Script `scripts/fetch_lagos_neighborhoods.py` with mirror fallback; endpoint `GET /api/v1/boundaries/neighborhoods`. Loader now batches on a single connection (per-feature reconnects were slow over the pooler). shapely added to the GIS stack. Verified: 20/20 tests pass (4 new). Note: HDX admin-3 has no Lagos wards; LCDA boundaries aren't reliably available — documented as an OSM named-places layer instead. |
 | 2026-08-16 | 0.1 | Defined the research question (primary + supporting questions, objectives, hypotheses). See `docs/01_research_question.md`. |
 | 2026-08-16 | 0.2 | Defined the study area: Lagos State (20 LGAs, 5 divisions), rationale, climate, physical setting, analysis units, and recorded analytical-extent decisions. See `docs/02_study_area.md`. |
 | 2026-08-16 | 0.3 | Defined datasets: Landsat 8/9 C2 L2 (path 191/055), GADM/HDX boundaries + OSM neighborhoods, ESA WorldCover, GHSL (optional), SRTM (optional), NOAA ISD (optional). See `docs/03_datasets.md`. |
