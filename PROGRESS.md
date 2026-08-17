@@ -38,7 +38,9 @@ Legend: `[ ]` pending · `[x]` done
 | 2.1 | City boundary in PostGIS | [x] |
 | 2.2 | Administrative boundaries in PostGIS | [x] |
 | 2.3 | Neighborhoods in PostGIS | [x] |
-| 2.4 | Display boundaries on map | [ ] |
+| 2.4 | Display boundaries on map | [x] |
+
+**Phase 2 complete.** Next: Phase 3 — Landsat Pipeline (reproducible imagery workflow: date + extent, cloud filtering, clipping, metadata; no large imagery in Git).
 
 ## Phase 3 — Landsat Pipeline
 
@@ -166,6 +168,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Date | Task | Summary |
 |------|------|---------|
+| 2026-08-17 | 2.4 | All three study-area layers display on the map (Task 2.4, Phase 2 complete): state (amber fill+outline), 20 LGAs (indigo outlines), 81 neighborhoods (teal points + 4 polygon outlines). The page fetches `/api/v1/boundaries/{city,lgas,neighborhoods}` through the Next proxy, shows live counts in the legend, and fits to the state boundary. Refactored the boundary effect to key on a `mapReady` state (React `react-hooks/refs` lint rule). Verified end-to-end in headless Chrome: API online, counts 20/81 rendered, map + OSM attribution present. Also killed stale uvicorn/next processes from a previous session that were masking newer routes. |
 | 2026-08-17 | 2.3 | 81 Lagos neighborhoods loaded into PostGIS from OpenStreetMap (Overpass API, `place=suburb\|neighbourhood\|quarter`, clipped to the state boundary with shapely): 77 points + 4 polygons (Eko Atlantic, Badia East, Bariga, Banana Island), all valid. Script `scripts/fetch_lagos_neighborhoods.py` with mirror fallback; endpoint `GET /api/v1/boundaries/neighborhoods`. Loader now batches on a single connection (per-feature reconnects were slow over the pooler). shapely added to the GIS stack. Verified: 20/20 tests pass (4 new). Note: HDX admin-3 has no Lagos wards; LCDA boundaries aren't reliably available — documented as an OSM named-places layer instead. |
 | 2026-08-16 | 0.1 | Defined the research question (primary + supporting questions, objectives, hypotheses). See `docs/01_research_question.md`. |
 | 2026-08-16 | 0.2 | Defined the study area: Lagos State (20 LGAs, 5 divisions), rationale, climate, physical setting, analysis units, and recorded analytical-extent decisions. See `docs/02_study_area.md`. |

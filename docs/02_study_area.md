@@ -30,6 +30,8 @@
 > **Loaded (Task 2.2):** all 20 Lagos LGAs (pcodes NG025001–NG025020) in `boundaries.admin_units`, level `lga`, from the same HDX COD-AB source. Combined LGA area 3488.2 km² vs state 3671.5 km² — the ~183 km² difference is lagoon/water inside the state boundary but outside LGA polygons (consistent with the water-masking decision).
 >
 > **Loaded (Task 2.3):** 81 named neighborhoods (77 suburb/neighbourhood points + 4 polygon boundaries) from OpenStreetMap via the Overpass API, clipped to the state boundary. Stored at level `neighborhood`, source `osm_overpass`. Note: the earlier plan of 37 LCDAs was revised to OSM named places — LCDA boundaries are not published in the HDX COD-AB or reliably mapped in OSM; OSM `place=suburb|neighbourhood|quarter` provides a consistent, attributable display layer instead.
+>
+> **Displayed (Task 2.4):** all three layers (state, LGAs, neighborhoods) render on the map via `GET /api/v1/boundaries/{city,lgas,neighborhoods}` through the Next.js proxy; the legend shows live feature counts and the view fits to the state boundary.
 
 ## Climate context
 

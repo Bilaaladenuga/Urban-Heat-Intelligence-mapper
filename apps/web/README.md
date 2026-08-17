@@ -38,3 +38,16 @@ API_URL=http://localhost:8000 npm run dev
 ```
 
 The home page shows an API health indicator driven by `GET /api/v1/health`.
+
+## Map layers (Phase 2)
+
+The map fetches the study-area layers through the proxy and renders them:
+
+| Layer | Endpoint | Style |
+|-------|----------|-------|
+| Lagos State boundary | `/api/v1/boundaries/city` | amber fill + outline |
+| LGA boundaries (20) | `/api/v1/boundaries/lgas` | indigo outlines |
+| Neighborhoods (81) | `/api/v1/boundaries/neighborhoods` | teal points (+ polygon outlines) |
+
+Counts are shown in the study-area legend once the layers load; the map fits
+to the state boundary automatically.
