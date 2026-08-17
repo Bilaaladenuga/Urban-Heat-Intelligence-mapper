@@ -43,6 +43,16 @@ def load_geometry_geojson() -> dict:
     return json.loads(config.GEOMETRY_SOURCE.read_text(encoding="utf-8"))
 
 
+def geometry_from_geojson(geojson: dict) -> dict:
+    """Extract the geometry dict from a FeatureCollection/Feature/Geometry."""
+    if geojson.get("type") == "FeatureCollection":
+        feature = geojson["features"][0]
+        return geometry_from_geojson(feature)
+    if geojson.get("type") == "Feature":
+        return geojson["geometry"]
+    return geojson
+
+
 def plan(
     ee,
     *,
@@ -51,7 +61,7 @@ def plan(
     geometry_geojson: dict,
 ) -> list[SceneRecord | None]:
     """Search/select every seasonal window (no exports)."""
-    geometry = ee.Geometry(geometry_geojson)
+    geometry = ee.Geometry(geometry_from_geojson(geometry_geojson))
     records: list[SceneRecord | None] = []
     for window in config.SEASONAL_WINDOWS:
         record, messages = plan_window(
@@ -115,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.warning("No scenes selected in any window — nothing to export.")
         return 0
 
-    geometry = ee.Geometry(geojson)
+    geometry = ee.Geometry(geometry_from_geojson(geojson))
     for record in selected:
         record.geometry_source = str(config.GEOMETRY_SOURCE)
         task = build_export_task(ee, scene=record, geometry=geometry)

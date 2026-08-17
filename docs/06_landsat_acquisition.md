@@ -11,7 +11,7 @@ Landsat 8/9 Collection 2 Level-2 scenes for Lagos State, per the design in
 ```text
 config.py (single source of truth)          search.py             export.py
 ───────────────────────────────    ──────────────────────   ─────────────────
-collections, path/row 191/055  →   per seasonal window:    →  ee.Export.image
+collections, path/row 191/055  →   per seasonal window:    →  ee.batch.Export.image
 cloud threshold (15%)              filter date/bounds/           .toDrive
 seasonal windows (dry/wet)         path/row/cloud →             bands, region,
 bands, scale, CRS, folder          best scene (fallback          UTM 31N, COG

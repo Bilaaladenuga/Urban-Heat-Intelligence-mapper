@@ -48,14 +48,10 @@ def test_records_from_features_skips_idless(sample_feature) -> None:
 
 
 def test_select_best_picks_lowest_cloud(sample_feature) -> None:
-    cloudy = dict(sample_feature)
-    cloudy["properties"] = {**cloudy["properties"], "CLOUD_COVER": 55.0,
-                            "system:index": "LC08_191055_20230201",
-                            "DATE_ACQUIRED": "2023-02-01"}
-    clear = dict(sample_feature)
-    clear["properties"] = {**clear["properties"], "CLOUD_COVER": 8.0,
-                           "system:index": "LC08_191055_20230210",
-                           "DATE_ACQUIRED": "2023-02-10"}
+    cloudy = _variant(sample_feature, "LC08_191055_20230201",
+                      cloud=55.0, date="2023-02-01")
+    clear = _variant(sample_feature, "LC08_191055_20230210",
+                     cloud=8.0, date="2023-02-10")
     records = records_from_features([cloudy, clear], window="dry")
     best = select_best(records)
     assert best is not None
@@ -98,6 +94,7 @@ def test_build_search_query_without_cloud_filter() -> None:
 def test_plan_window_selects_within_threshold(sample_feature) -> None:
     clear = dict(sample_feature)
     clear["properties"] = {**clear["properties"], "CLOUD_COVER": 5.0}
+    clear["id"] = clear["properties"]["system:index"]
     ee = FakeEE([{"features": [sample_feature, clear]}])
     record, messages = plan_window(
         ee, geometry="GEO", window="dry", year=2023,
@@ -110,9 +107,21 @@ def test_plan_window_selects_within_threshold(sample_feature) -> None:
     assert any("selected" in m for m in messages)
 
 
+def _variant(sample_feature, scene_id: str, *, cloud: float, date: str) -> dict:
+    feature = dict(sample_feature)
+    feature["id"] = scene_id
+    feature["properties"] = {
+        **feature["properties"],
+        "CLOUD_COVER": cloud,
+        "DATE_ACQUIRED": date,
+        "system:index": scene_id,
+    }
+    return feature
+
+
 def test_plan_window_fallback_above_threshold(sample_feature) -> None:
-    cloudy = dict(sample_feature)
-    cloudy["properties"] = {**cloudy["properties"], "CLOUD_COVER": 40.0}
+    cloudy = _variant(sample_feature, "LC08_191055_20230501",
+                      cloud=40.0, date="2023-05-01")
     # First query (within threshold) returns nothing; second (no ceiling)
     # returns the cloudy scene -> documented fallback.
     ee = FakeEE([{"features": []}, {"features": [cloudy]}])

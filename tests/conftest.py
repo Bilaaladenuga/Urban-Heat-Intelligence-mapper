@@ -56,7 +56,7 @@ class FakeCollection:
         self.filters.append(("filter", filt))
         return self
 
-    def flatten(self):
+    def merge(self, other):
         return self
 
     def getInfo(self) -> dict:
@@ -87,11 +87,12 @@ class FakeImage:
 class FakeEE:
     Filter = FakeFilter
 
-    class Export:
-        class image:
-            @staticmethod
-            def toDrive(**kwargs):
-                return FakeTask(kwargs)
+    class batch:
+        class Export:
+            class image:
+                @staticmethod
+                def toDrive(**kwargs):
+                    return FakeTask(kwargs)
 
     def Image(self, image_id):
         return FakeImage(image_id)

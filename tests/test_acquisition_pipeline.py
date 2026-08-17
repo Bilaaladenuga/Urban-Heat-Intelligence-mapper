@@ -22,6 +22,7 @@ def test_dry_run_prints_plan(capsys) -> None:
 def test_plan_uses_both_windows(sample_feature) -> None:
     dry = dict(sample_feature)
     wet = dict(sample_feature)
+    wet["id"] = "LC09_191055_20230610"
     wet["properties"] = {**wet["properties"], "system:index": "LC09_191055_20230610",
                          "DATE_ACQUIRED": "2023-06-10", "SPACECRAFT_ID": "LANDSAT_9"}
     ee = FakeEE([{"features": [dry]}, {"features": [wet]}])

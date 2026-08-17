@@ -52,10 +52,11 @@ def build_search_query(
     fallback search when no scene meets the threshold).
     """
     start, end = window_date_range(window, year)
-    collections = ee.List(config.COLLECTIONS).map(
-        lambda cid: _single_collection(ee, cid, geometry, start, end, max_cloud_pct)
-    )
-    return ee.ImageCollection(collections).flatten()
+    merged = None
+    for cid in config.COLLECTIONS:
+        collection = _single_collection(ee, cid, geometry, start, end, max_cloud_pct)
+        merged = collection if merged is None else merged.merge(collection)
+    return merged
 
 
 def _single_collection(ee, cid, geometry, start, end, max_cloud_pct):
@@ -86,7 +87,12 @@ def records_from_features(features: list[dict], *, window: str) -> list[SceneRec
     records: list[SceneRecord] = []
     for feature in features:
         props = feature.get("properties", {})
-        scene_id = props.get("system:index") or feature.get("id", "")
+        # The feature ``id`` is the full GEE asset path (e.g.
+        # LANDSAT/LC08/C02/T1_L2/LC08_191055_20221125); ``system:index``
+        # gets an index prefix when collections are merged, so it is not
+        # reliable for loading the image later.
+        asset_id = feature.get("id", "") or ""
+        scene_id = asset_id.rsplit("/", 1)[-1] or props.get("system:index", "")
         if not scene_id:
             continue
         satellite = props.get("SPACECRAFT_ID", "")
@@ -107,7 +113,10 @@ def records_from_features(features: list[dict], *, window: str) -> list[SceneRec
                 bands=list(config.BANDS),
                 crs=config.EXPORT_CRS,
                 scale_meters=config.SCALE_METERS,
-                extra={"landsat_product_id": props.get("LANDSAT_PRODUCT_ID", "")},
+                extra={
+                    "asset_id": asset_id,
+                    "landsat_product_id": props.get("LANDSAT_PRODUCT_ID", ""),
+                },
             )
         )
     return records

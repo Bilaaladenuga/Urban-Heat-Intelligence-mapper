@@ -17,8 +17,9 @@ def build_export_task(ee, *, scene, geometry) -> object:
     ``scene`` is a :class:`~remote_sensing.acquisition.models.SceneRecord`
     whose bands/CRS/scale fields were captured at selection time.
     """
-    image = ee.Image(scene.scene_id).select(scene.bands)
-    return ee.Export.image.toDrive(
+    asset_id = scene.extra.get("asset_id") or f"{scene.source_collection}/{scene.scene_id}"
+    image = ee.Image(asset_id).select(scene.bands)
+    return ee.batch.Export.image.toDrive(
         image=image,
         description=scene.scene_id,
         folder=config.DRIVE_FOLDER,
