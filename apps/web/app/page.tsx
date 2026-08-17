@@ -236,7 +236,7 @@ export default function Home() {
       </header>
 
       <main className="relative flex-1">
-        <div ref={mapContainer} className="absolute inset-0" />
+        <div ref={mapContainer} className="absolute inset-0 bg-white" />
         <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-xs rounded-lg bg-white/90 p-3 text-xs text-zinc-700 shadow">
           <p className="font-medium text-zinc-900">Study area</p>
           <p className="mt-1">
