@@ -13,7 +13,8 @@ Usage:
 workflow is inspectable before any credentials are involved.
 
 Authentication (one-time, live mode only):
-    python -m earthengine authenticate
+    earthengine authenticate          # venv Scripts dir on PATH
+    apps/api/.venv/Scripts/earthengine authenticate   # or full path
 """
 
 from __future__ import annotations
@@ -89,14 +90,14 @@ def main(argv: list[str] | None = None) -> int:
             "earthengine-api is not installed. Install with:\n"
             "    pip install earthengine-api\n"
             "then authenticate once:\n"
-            "    python -m earthengine authenticate"
+            "    earthengine authenticate"
         )
         return 1
     try:
         ee.Initialize()
     except Exception as exc:  # noqa: BLE001 - auth errors surface to the user
         logger.error("Earth Engine initialization failed: %s", exc)
-        logger.error("Authenticate once with: python -m earthengine authenticate")
+        logger.error("Authenticate once with: earthengine authenticate")
         return 1
 
     geojson = load_geometry_geojson()
@@ -155,7 +156,7 @@ def print_dry_run(year: int, cloud_threshold_pct: float) -> None:
               f"cover <= {cloud_threshold_pct}% (fallback: lowest cloud, "
               "deviation recorded)")
     print("=" * 72)
-    print("Live run needs one-time auth:  python -m earthengine authenticate")
+    print("Live run needs one-time auth:  earthengine authenticate")
 
 
 def _geojson_bounds(geojson: dict) -> str:

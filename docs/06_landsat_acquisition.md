@@ -29,8 +29,17 @@ The pipeline is orchestrated by `remote_sensing/acquisition/pipeline.py`:
 python -m remote_sensing.acquisition.pipeline --dry-run --year 2023
 
 # Live run (requires one-time auth):
-python -m earthengine authenticate
+earthengine authenticate
 python -m remote_sensing.acquisition.pipeline --year 2023
+
+> **Windows note:** the Earth Engine CLI is an executable in the venv,
+> `apps/api/.venv/Scripts/earthengine.exe` — `python -m earthengine` does
+> **not** work (the import name is `ee`). Use the full path below (or
+> activate the venv first so `earthengine` is on PATH):
+>
+> ```bash
+> apps/api/.venv/Scripts/earthengine.exe authenticate
+> ```
 ```
 
 Run from the repository root with the project venv
@@ -92,9 +101,12 @@ export task id)
 ## One-time setup (your side)
 
 ```bash
-pip install earthengine-api        # already installed in the project venv
-python -m earthengine authenticate # opens a browser for Google sign-in
+pip install earthengine-api                  # already installed
+apps/api/.venv/Scripts/earthengine.exe authenticate  # opens a browser
 ```
+
+(`python -m earthengine` fails because the package imports as `ee`; the
+CLI ships as the `earthengine` executable in the venv `Scripts` folder.)
 
 The live run then exports scenes to the Drive folder
 `urban_heat_intelligence/`; download them from Google Drive (or a future
