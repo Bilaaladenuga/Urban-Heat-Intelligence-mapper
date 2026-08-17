@@ -46,7 +46,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Task | Description | Status |
 |------|-------------|--------|
-| 3.1 | Reproducible imagery workflow | [ ] |
+| 3.1 | Reproducible imagery workflow | [x] |
 | 3.2 | Date + geographic extent support | [ ] |
 | 3.3 | Cloud filtering | [ ] |
 | 3.4 | Clipping | [ ] |
@@ -168,6 +168,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Date | Task | Summary |
 |------|------|---------|
+| 2026-08-17 | 3.1 | Reproducible Landsat acquisition workflow built in `remote_sensing/acquisition/`: `config.py` (single source of truth: LC08/LC09 C2 L2, path/row 191/055, cloud ceiling 15%, dry/wet seasonal windows, bands SR_B4-7 + ST_B10 + QA_PIXEL, UTM 31N, 30 m, COG), `search.py` (query builder + lowest-cloud selection with recorded `fallback_above_threshold` deviation per methodology §3.1), `export.py` (Drive COG export), `models.py` + `metadata.py` (per-scene JSON records + manifest in gitignored `data/processed/imagery/`), `pipeline.py` CLI (`--dry-run` needs no credentials). earthengine-api 1.7.39 installed in the project venv. Tests: 22 new (FakeEE stub in `tests/conftest.py`, no credentials needed) — query construction, selection/fallback, export params, metadata round-trip, dry-run. Verified `--dry-run` reads the Phase 2 Lagos boundary (bbox lon 2.7022–4.3508 / lat 6.3708–6.6984). Docs: `docs/06_landsat_acquisition.md`. Auth step for the user: `python -m earthengine authenticate`. Note: date/extent/cloud filtering and metadata are implemented as workflow capabilities (3.2/3.3/3.5 deepen/validate them); 3.6 (no imagery in Git) satisfied by existing gitignore. |
 | 2026-08-17 | 2.4 | All three study-area layers display on the map (Task 2.4, Phase 2 complete): state (amber fill+outline), 20 LGAs (indigo outlines), 81 neighborhoods (teal points + 4 polygon outlines). The page fetches `/api/v1/boundaries/{city,lgas,neighborhoods}` through the Next proxy, shows live counts in the legend, and fits to the state boundary. Refactored the boundary effect to key on a `mapReady` state (React `react-hooks/refs` lint rule). Verified end-to-end in headless Chrome: API online, counts 20/81 rendered, map + OSM attribution present. Also killed stale uvicorn/next processes from a previous session that were masking newer routes. |
 | 2026-08-17 | 2.3 | 81 Lagos neighborhoods loaded into PostGIS from OpenStreetMap (Overpass API, `place=suburb\|neighbourhood\|quarter`, clipped to the state boundary with shapely): 77 points + 4 polygons (Eko Atlantic, Badia East, Bariga, Banana Island), all valid. Script `scripts/fetch_lagos_neighborhoods.py` with mirror fallback; endpoint `GET /api/v1/boundaries/neighborhoods`. Loader now batches on a single connection (per-feature reconnects were slow over the pooler). shapely added to the GIS stack. Verified: 20/20 tests pass (4 new). Note: HDX admin-3 has no Lagos wards; LCDA boundaries aren't reliably available — documented as an OSM named-places layer instead. |
 | 2026-08-16 | 0.1 | Defined the research question (primary + supporting questions, objectives, hypotheses). See `docs/01_research_question.md`. |
