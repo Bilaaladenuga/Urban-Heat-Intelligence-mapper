@@ -236,7 +236,14 @@ export default function Home() {
       </header>
 
       <main className="relative flex-1">
-        <div ref={mapContainer} className="absolute inset-0 bg-white" />
+        {/* Inline styles: MapLibre adds its own class to this container and
+            its stylesheet `position: relative` would override Tailwind's
+            utilities (unlayered CSS beats @layer). Inline wins over all. */}
+        <div
+          ref={mapContainer}
+          className="bg-white"
+          style={{ position: "absolute", inset: 0 }}
+        />
         <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-xs rounded-lg bg-white/90 p-3 text-xs text-zinc-700 shadow">
           <p className="font-medium text-zinc-900">Study area</p>
           <p className="mt-1">

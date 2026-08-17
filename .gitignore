@@ -28,6 +28,7 @@ npm-debug.log*
 # --- Raster / large geodata (never commit imagery) ---
 data/raw/
 data/processed/
+data/preview/
 *.tif
 *.tiff
 *.img
