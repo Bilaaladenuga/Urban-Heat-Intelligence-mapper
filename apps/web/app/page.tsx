@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 
 type HealthStatus = "checking" | "online" | "offline";
@@ -8,13 +8,36 @@ type BoundaryStatus = "loading" | "loaded" | "offline";
 
 const LAGOS_CENTER: [number, number] = [3.3792, 6.5244];
 
-// Add the study-area boundary layers (state, LGAs, neighborhoods) to a
-// loaded map. Returns the number of features per layer for the legend.
-function addBoundaryLayers(map: maplibregl.Map, data: {
-  city: unknown;
-  lgas: unknown;
-  neighborhoods: unknown;
-}): { lgas: number; neighborhoods: number } {
+interface SceneInfo {
+  scene_id: string;
+  bands: number;
+  crs: string;
+  width: number;
+  height: number;
+  bounds: { west: number; south: number; east: number; north: number };
+  nodata: number | null;
+}
+
+const BAND_LABELS: Record<number, string> = {
+  1: "SR_B4 (Red)",
+  2: "SR_B5 (NIR)",
+  3: "SR_B6 (SWIR1)",
+  4: "SR_B7 (SWIR2)",
+  5: "ST_B10 (Temp)",
+  6: "QA_PIXEL",
+};
+
+const COLORMAP_OPTIONS = [
+  { value: "", label: "Grayscale" },
+  { value: "thermal", label: "Thermal" },
+  { value: "ndvi", label: "NDVI" },
+];
+
+// Add the study-area boundary layers to a loaded map.
+function addBoundaryLayers(
+  map: maplibregl.Map,
+  data: { city: unknown; lgas: unknown; neighborhoods: unknown }
+): { lgas: number; neighborhoods: number } {
   const city = data.city as maplibregl.GeoJSONSourceSpecification["data"];
   const lgas = data.lgas as maplibregl.GeoJSONSourceSpecification["data"];
   const neighborhoods = data.neighborhoods as maplibregl.GeoJSONSourceSpecification["data"];
@@ -24,19 +47,13 @@ function addBoundaryLayers(map: maplibregl.Map, data: {
     id: "city-fill",
     type: "fill",
     source: "city",
-    paint: {
-      "fill-color": "#f59e0b",
-      "fill-opacity": 0.15,
-    },
+    paint: { "fill-color": "#f59e0b", "fill-opacity": 0.15 },
   });
   map.addLayer({
     id: "city-outline",
     type: "line",
     source: "city",
-    paint: {
-      "line-color": "#b45309",
-      "line-width": 2,
-    },
+    paint: { "line-color": "#b45309", "line-width": 2 },
   });
 
   map.addSource("lgas", { type: "geojson", data: lgas });
@@ -44,34 +61,21 @@ function addBoundaryLayers(map: maplibregl.Map, data: {
     id: "lga-outline",
     type: "line",
     source: "lgas",
-    paint: {
-      "line-color": "#6366f1",
-      "line-width": 1,
-      "line-opacity": 0.8,
-    },
+    paint: { "line-color": "#6366f1", "line-width": 1, "line-opacity": 0.8 },
   });
 
-  // Neighborhoods: points render as circles, the few polygon boundaries
-  // render as a light fill + outline. No-op layers for the other geometry
-  // type are fine — MapLibre skips them.
   map.addSource("neighborhoods", { type: "geojson", data: neighborhoods });
   map.addLayer({
     id: "neighborhood-fill",
     type: "fill",
     source: "neighborhoods",
-    paint: {
-      "fill-color": "#0d9488",
-      "fill-opacity": 0.2,
-    },
+    paint: { "fill-color": "#0d9488", "fill-opacity": 0.2 },
   });
   map.addLayer({
     id: "neighborhood-outline",
     type: "line",
     source: "neighborhoods",
-    paint: {
-      "line-color": "#0f766e",
-      "line-width": 1,
-    },
+    paint: { "line-color": "#0f766e", "line-width": 1 },
   });
   map.addLayer({
     id: "neighborhood-points",
@@ -91,18 +95,20 @@ function addBoundaryLayers(map: maplibregl.Map, data: {
   return { lgas: lgaCount, neighborhoods: neighborhoodCount };
 }
 
-// Expand the map bounds to cover the state boundary geometry.
 function stateBounds(featureCollection: unknown): maplibregl.LngLatBounds {
   const bounds = new maplibregl.LngLatBounds();
-  const features = (featureCollection as { features?: unknown[] }).features ?? [];
+  const features = (
+    featureCollection as { features?: unknown[] }
+  ).features ?? [];
   const pushRing = (ring: number[][]) => {
     for (const position of ring) {
       if (position.length >= 2) bounds.extend([position[0], position[1]]);
     }
   };
   for (const feature of features) {
-    const geometry = (feature as { geometry?: { type?: string; coordinates?: unknown } })
-      .geometry;
+    const geometry = (
+      feature as { geometry?: { type?: string; coordinates?: unknown } }
+    ).geometry;
     if (!geometry) continue;
     if (geometry.type === "Polygon") {
       for (const ring of geometry.coordinates as number[][][]) {
@@ -119,6 +125,14 @@ function stateBounds(featureCollection: unknown): maplibregl.LngLatBounds {
   return bounds;
 }
 
+// Build the tile URL for a raster layer.
+function tileUrl(sceneId: string, band: number, colormap: string): string {
+  const params = new URLSearchParams();
+  params.set("band", String(band));
+  if (colormap) params.set("colormap", colormap);
+  return `/api/v1/rasters/${sceneId}/tiles/{z}/{x}/{y}.png?${params.toString()}`;
+}
+
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -128,6 +142,19 @@ export default function Home() {
   const [neighborhoodCount, setNeighborhoodCount] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
+  // Raster layer state.
+  const [scenes, setScenes] = useState<SceneInfo[]>([]);
+  const [selectedScene, setSelectedScene] = useState<string>("");
+  const [selectedBand, setSelectedBand] = useState<number>(1);
+  const [colormap, setColormap] = useState<string>("");
+  const [opacity, setOpacity] = useState<number>(0.7);
+  const [rasterVisible, setRasterVisible] = useState<boolean>(false);
+
+  // Track the current raster source/layer to remove/re-add on change.
+  const rasterLayerId = "raster-layer";
+  const rasterSourceId = "raster-source";
+
+  // Initialize map.
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
@@ -143,13 +170,7 @@ export default function Home() {
             attribution: "© OpenStreetMap contributors",
           },
         },
-        layers: [
-          {
-            id: "osm",
-            type: "raster",
-            source: "osm",
-          },
-        ],
+        layers: [{ id: "osm", type: "raster", source: "osm" }],
       },
       center: LAGOS_CENTER,
       zoom: 10,
@@ -165,6 +186,7 @@ export default function Home() {
     };
   }, []);
 
+  // Health check.
   useEffect(() => {
     fetch("/api/v1/health")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
@@ -172,7 +194,20 @@ export default function Home() {
       .catch(() => setHealth("offline"));
   }, []);
 
-  // Load the study-area boundaries once the map is ready.
+  // Fetch available scenes.
+  useEffect(() => {
+    fetch("/api/v1/rasters")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { scenes: SceneInfo[] }) => {
+        setScenes(data.scenes);
+        if (data.scenes.length > 0) {
+          setSelectedScene(data.scenes[0].scene_id);
+        }
+      })
+      .catch(() => setScenes([]));
+  }, []);
+
+  // Load boundaries.
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current;
@@ -208,6 +243,37 @@ export default function Home() {
     void onLoad();
   }, [mapReady]);
 
+  // Update the raster layer on the map when settings change.
+  const updateRasterLayer = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    // Remove existing raster layer/source if present.
+    if (map.getLayer(rasterLayerId)) map.removeLayer(rasterLayerId);
+    if (map.getSource(rasterSourceId)) map.removeSource(rasterSourceId);
+
+    if (!rasterVisible || !selectedScene) return;
+
+    // Add the raster tile source and layer.
+    const url = tileUrl(selectedScene, selectedBand, colormap);
+    map.addSource(rasterSourceId, {
+      type: "raster",
+      tiles: [url],
+      tileSize: 256,
+      maxzoom: 18,
+    });
+    map.addLayer({
+      id: rasterLayerId,
+      type: "raster",
+      source: rasterSourceId,
+      paint: { "raster-opacity": opacity },
+    });
+  }, [rasterVisible, selectedScene, selectedBand, colormap, opacity, mapReady]);
+
+  useEffect(() => {
+    updateRasterLayer();
+  }, [updateRasterLayer]);
+
   return (
     <div className="relative flex flex-1 flex-col">
       <header className="z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3">
@@ -236,19 +302,18 @@ export default function Home() {
       </header>
 
       <main className="relative flex-1">
-        {/* Inline styles: MapLibre adds its own class to this container and
-            its stylesheet `position: relative` would override Tailwind's
-            utilities (unlayered CSS beats @layer). Inline wins over all. */}
         <div
           ref={mapContainer}
           className="bg-white"
           style={{ position: "absolute", inset: 0 }}
         />
+
+        {/* Legend + boundary info */}
         <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-xs rounded-lg bg-white/90 p-3 text-xs text-zinc-700 shadow">
           <p className="font-medium text-zinc-900">Study area</p>
           <p className="mt-1">
-            Lagos State, Nigeria. Landsat 8/9 scenes will be processed here to
-            derive NDVI, Land Surface Temperature and built-up indicators.
+            Lagos State, Nigeria. Landsat 8/9 scenes processed for NDVI,
+            LST and built-up indicators.
           </p>
           <div className="mt-2 space-y-1 border-t border-zinc-200 pt-2">
             <div className="flex items-center gap-2">
@@ -278,6 +343,91 @@ export default function Home() {
               </span>
             </div>
           </div>
+
+          {/* Raster layer controls */}
+          {scenes.length > 0 && (
+            <div className="mt-3 border-t border-zinc-200 pt-2">
+              <p className="font-medium text-zinc-900">Raster layers</p>
+
+              <label className="mt-1 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={rasterVisible}
+                  onChange={(e) => setRasterVisible(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                <span>Show raster</span>
+              </label>
+
+              {rasterVisible && (
+                <div className="mt-2 space-y-2">
+                  {/* Scene selector */}
+                  <div>
+                    <label className="text-zinc-600">Scene</label>
+                    <select
+                      value={selectedScene}
+                      onChange={(e) => setSelectedScene(e.target.value)}
+                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                    >
+                      {scenes.map((s) => (
+                        <option key={s.scene_id} value={s.scene_id}>
+                          {s.scene_id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Band selector */}
+                  <div>
+                    <label className="text-zinc-600">Band</label>
+                    <select
+                      value={selectedBand}
+                      onChange={(e) => setSelectedBand(Number(e.target.value))}
+                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                    >
+                      {Array.from({ length: 6 }, (_, i) => i + 1).map((b) => (
+                        <option key={b} value={b}>
+                          {BAND_LABELS[b]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Colormap */}
+                  <div>
+                    <label className="text-zinc-600">Colormap</label>
+                    <select
+                      value={colormap}
+                      onChange={(e) => setColormap(e.target.value)}
+                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                    >
+                      {COLORMAP_OPTIONS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Opacity slider */}
+                  <div>
+                    <label className="text-zinc-600">
+                      Opacity: {Math.round(opacity * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={opacity}
+                      onChange={(e) => setOpacity(Number(e.target.value))}
+                      className="mt-0.5 w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>
