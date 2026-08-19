@@ -16,6 +16,7 @@ interface SceneInfo {
   height: number;
   bounds: { west: number; south: number; east: number; north: number };
   nodata: number | null;
+  type?: string;
 }
 
 const BAND_LABELS: Record<number, string> = {
@@ -27,10 +28,19 @@ const BAND_LABELS: Record<number, string> = {
   6: "QA_PIXEL",
 };
 
+const NDVI_BAND_LABELS: Record<number, string> = {
+  1: "NDVI",
+};
+
 const COLORMAP_OPTIONS = [
   { value: "", label: "Grayscale" },
   { value: "thermal", label: "Thermal" },
   { value: "ndvi", label: "NDVI" },
+];
+
+const NDVI_COLORMAP_OPTIONS = [
+  { value: "ndvi", label: "NDVI (brown-green)" },
+  { value: "", label: "Grayscale" },
 ];
 
 // Add the study-area boundary layers to a loaded map.
@@ -133,6 +143,13 @@ function tileUrl(sceneId: string, band: number, colormap: string): string {
   return `/api/v1/rasters/${sceneId}/tiles/{z}/{x}/{y}.png?${params.toString()}`;
 }
 
+// Get the effective band number for a scene type.
+function effectiveBand(scene: SceneInfo | null, band: number): number {
+  if (!scene) return band;
+  if (scene.type === "ndvi") return 1; // NDVI is always band 1
+  return band;
+}
+
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -149,6 +166,9 @@ export default function Home() {
   const [colormap, setColormap] = useState<string>("");
   const [opacity, setOpacity] = useState<number>(0.7);
   const [rasterVisible, setRasterVisible] = useState<boolean>(false);
+
+  // Derived: the currently selected scene object.
+  const activeScene = scenes.find((s) => s.scene_id === selectedScene) ?? null;
 
   // Track the current raster source/layer to remove/re-add on change.
   const rasterLayerId = "raster-layer";
@@ -255,7 +275,8 @@ export default function Home() {
     if (!rasterVisible || !selectedScene) return;
 
     // Add the raster tile source and layer.
-    const url = tileUrl(selectedScene, selectedBand, colormap);
+    const band = effectiveBand(activeScene, selectedBand);
+    const url = tileUrl(selectedScene, band, colormap);
     map.addSource(rasterSourceId, {
       type: "raster",
       tiles: [url],
@@ -268,7 +289,7 @@ export default function Home() {
       source: rasterSourceId,
       paint: { "raster-opacity": opacity },
     });
-  }, [rasterVisible, selectedScene, selectedBand, colormap, opacity, mapReady]);
+  }, [rasterVisible, selectedScene, selectedBand, colormap, opacity, mapReady, activeScene]);
 
   useEffect(() => {
     updateRasterLayer();
@@ -363,7 +384,7 @@ export default function Home() {
                 <div className="mt-2 space-y-2">
                   {/* Scene selector */}
                   <div>
-                    <label className="text-zinc-600">Scene</label>
+                    <label className="text-zinc-600">Layer</label>
                     <select
                       value={selectedScene}
                       onChange={(e) => setSelectedScene(e.target.value)}
@@ -371,27 +392,29 @@ export default function Home() {
                     >
                       {scenes.map((s) => (
                         <option key={s.scene_id} value={s.scene_id}>
-                          {s.scene_id}
+                          {s.scene_id.replace(/_/g, " ")} {s.type === "ndvi" ? "[NDVI]" : "[RGB]"}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Band selector */}
-                  <div>
-                    <label className="text-zinc-600">Band</label>
-                    <select
-                      value={selectedBand}
-                      onChange={(e) => setSelectedBand(Number(e.target.value))}
-                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
-                    >
-                      {Array.from({ length: 6 }, (_, i) => i + 1).map((b) => (
-                        <option key={b} value={b}>
-                          {BAND_LABELS[b]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Band selector (hidden for NDVI — single band) */}
+                  {activeScene?.type !== "ndvi" && (
+                    <div>
+                      <label className="text-zinc-600">Band</label>
+                      <select
+                        value={selectedBand}
+                        onChange={(e) => setSelectedBand(Number(e.target.value))}
+                        className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      >
+                        {Array.from({ length: 6 }, (_, i) => i + 1).map((b) => (
+                          <option key={b} value={b}>
+                            {BAND_LABELS[b]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Colormap */}
                   <div>
@@ -401,7 +424,7 @@ export default function Home() {
                       onChange={(e) => setColormap(e.target.value)}
                       className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
                     >
-                      {COLORMAP_OPTIONS.map((c) => (
+                      {(activeScene?.type === "ndvi" ? NDVI_COLORMAP_OPTIONS : COLORMAP_OPTIONS).map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}
                         </option>

@@ -31,6 +31,7 @@ from rasterio.warp import reproject
 # parents[0] = services, [1] = app, [2] = api, [3] = apps, [4] = repo root
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 PROCESSED_DIR = ROOT / "data" / "processed" / "imagery"
+NDVI_DIR = ROOT / "data" / "processed" / "ndvi"
 
 # Web Mercator CRS for tile rendering.
 WEB_MERCATOR = CRS.from_epsg(3857)
@@ -44,7 +45,7 @@ STRETCH_HIGH = 98.0  # 98th percentile
 
 
 def list_scenes() -> list[dict]:
-    """List all preprocessed scenes available for tiling."""
+    """List all preprocessed scenes + derived products available for tiling."""
     scenes = []
     if not PROCESSED_DIR.exists():
         return scenes
@@ -67,20 +68,60 @@ def list_scenes() -> list[dict]:
                         "north": src.bounds.top,
                     },
                     "nodata": src.nodata,
+                    "type": "scene",
                 })
+    # Also list NDVI rasters.
+    if NDVI_DIR.exists():
+        for scene_dir in sorted(NDVI_DIR.iterdir()):
+            if not scene_dir.is_dir() or scene_dir.name.startswith("."):
+                continue
+            tif = scene_dir / f"{scene_dir.name}_ndvi.tif"
+            if tif.exists():
+                with rasterio.open(tif) as src:
+                    scenes.append({
+                        "scene_id": f"{scene_dir.name}_ndvi",
+                        "bands": src.count,
+                        "crs": str(src.crs),
+                        "width": src.width,
+                        "height": src.height,
+                        "bounds": {
+                            "west": src.bounds.left,
+                            "south": src.bounds.bottom,
+                            "east": src.bounds.right,
+                            "north": src.bounds.top,
+                        },
+                        "nodata": None,
+                        "type": "ndvi",
+                    })
     return scenes
 
 
 def get_scene_path(scene_id: str) -> pathlib.Path:
-    """Get the path to a preprocessed scene's GeoTIFF."""
-    return PROCESSED_DIR / scene_id / f"{scene_id}_processed.tif"
+    """Get the path to a scene's GeoTIFF (preprocessed or derived)."""
+    # Check preprocessed scenes first.
+    path = PROCESSED_DIR / scene_id / f"{scene_id}_processed.tif"
+    if path.exists():
+        return path
+    # Check NDVI rasters (scene_id format: {scene_id}_ndvi).
+    if scene_id.endswith("_ndvi"):
+        base = scene_id[:-5]  # strip _ndvi
+        ndvi_path = NDVI_DIR / base / f"{base}_ndvi.tif"
+        if ndvi_path.exists():
+            return ndvi_path
+    return path  # fallback
 
 
 def _percentile_stretch(
-    band: np.ndarray, low: float = STRETCH_LOW, high: float = STRETCH_HIGH
+    band: np.ndarray,
+    low: float = STRETCH_LOW,
+    high: float = STRETCH_HIGH,
+    is_float: bool = False,
 ) -> tuple[float, float]:
     """Compute percentile-based min/max for stretching."""
-    valid = band[band > 0]  # exclude nodata (0)
+    if is_float:
+        valid = band[~np.isnan(band)]
+    else:
+        valid = band[band > 0]  # exclude nodata (0)
     if valid.size == 0:
         return 0.0, 1.0
     vmin = float(np.percentile(valid, low))
@@ -95,17 +136,20 @@ def _band_to_rgba(
     vmin: float,
     vmax: float,
     colormap: str | None = None,
+    is_float: bool = False,
 ) -> np.ndarray:
     """Convert a single band to RGBA for PNG rendering.
 
     Parameters
     ----------
     band : ndarray
-        2D uint16 array.
+        2D array (uint16 or float64).
     vmin, vmax : float
         Stretch range.
     colormap : str, optional
         'thermal' for LST, 'ndvi' for vegetation, None for grayscale.
+    is_float : bool
+        True if band is float (NaN nodata); False for uint16 (0 nodata).
 
     Returns
     -------
@@ -113,9 +157,14 @@ def _band_to_rgba(
     """
     h, w = band.shape
 
+    # Determine valid pixels.
+    if is_float:
+        valid = ~np.isnan(band)
+    else:
+        valid = (band > 0) & (band <= vmax * 1.5)
+
     # Normalize to 0-255.
     normalized = np.zeros_like(band, dtype=np.float64)
-    valid = (band > 0) & (band <= vmax * 1.5)
     normalized[valid] = np.clip(
         (band[valid].astype(np.float64) - vmin) / (vmax - vmin), 0, 1
     )
@@ -207,7 +256,8 @@ def render_tile(
         )
 
         # Reproject the band to web mercator for this tile's extent.
-        tile_data = np.zeros((TILE_SIZE, TILE_SIZE), dtype=src.dtypes[band - 1])
+        is_float = np.issubdtype(np.dtype(src.dtypes[band - 1]), np.floating)
+        tile_data = np.zeros((TILE_SIZE, TILE_SIZE), dtype=np.float64)
         reproject(
             source=rasterio.band(src, band),
             destination=tile_data,
@@ -219,8 +269,8 @@ def render_tile(
         )
 
     # Stretch and convert to RGBA.
-    vmin, vmax = _percentile_stretch(tile_data)
-    rgba = _band_to_rgba(tile_data, vmin, vmax, colormap=colormap)
+    vmin, vmax = _percentile_stretch(tile_data, is_float=is_float)
+    rgba = _band_to_rgba(tile_data, vmin, vmax, colormap=colormap, is_float=is_float)
 
     # Encode as PNG.
     return _rgba_to_png(rgba)

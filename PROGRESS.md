@@ -68,10 +68,12 @@ Legend: `[ ]` pending · `[x]` done
 
 | Task | Description | Status |
 |------|-------------|--------|
-| 5.1 | NDVI raster | [ ] |
-| 5.2 | NDVI statistics | [ ] |
-| 5.3 | NDVI visualization | [ ] |
-| 5.4 | NDVI value validation | [ ] |
+| 5.1 | NDVI raster | [x] |
+| 5.2 | NDVI statistics | [x] |
+| 5.3 | NDVI visualization | [x] |
+| 5.4 | NDVI value validation | [x] |
+
+**Phase 5 complete.** Next: Phase 6 — Land Surface Temperature.
 
 ## Phase 6 — Land Surface Temperature
 
@@ -170,6 +172,7 @@ Legend: `[ ]` pending · `[x]` done
 
 | Date | Task | Summary |
 |------|------|---------|
+| 2026-08-19 | 5.1–5.4 | **Phase 5 complete — NDVI computation.** Module `remote_sensing/ndvi/compute.py`: NDVI = (NIR - RED) / (NIR + RED) with C2 L2 scaling (raw * 0.0000275 - 0.2). Critical fix: pixels below USGS valid range (raw < 7273) produce negative reflectance and extreme NDVI; excluded from computation. Near-zero denominator guard (|denom| < 0.001). Statistics: LC09 dry mean=0.4103, LC08 wet mean=0.4453; both within [-1, 1]. Validation: land-cover expectations match (water negative, vegetation 0.4-0.9, bare/urban <= 0.2). NDVI layer added to web map (brown-green colormap). 20 new tests; full suite 91/91. Docs: `docs/08_ndvi.md`. |
 | 2026-08-19 | 4.1–4.4 | **Phase 4 complete — preprocessing pipeline.** Four modules in `remote_sensing/preprocessing/`: `cloud_mask.py` (QA_PIXEL bit-flag masking — bits 0–5: fill, dilated cloud, cirrus, cloud, cloud shadow, snow; bit 6 is Clear/inverted and NOT a mask bit), `clip.py` (rasterio.mask.mask with Lagos boundary), `align.py` (reference grid verification: EPSG:32631, 30 m), `nodata.py` (nodata=0, validation). Pipeline CLI (`python -m remote_sensing.preprocessing.pipeline`) processes both scenes: LC09 dry (81.4% valid, 0.02% cloud) and LC08 wet (41.4% valid, 35.4% cloud fallback). Critical bug found and fixed during testing: original code used bit 6 as Cirrus — it is actually the Clear flag (inverted), causing 99% masking. Verified against real QA_PIXEL values (21762=bit 1 dilated cloud, 21824=bits 6+confidence). 42 new tests (cloud mask: 14, clip: 6, align: 8, nodata: 10) — full suite 64/64 green. SR band validation range updated (uint16 0–65535, not 0–10000). Docs: `docs/07_preprocessing.md`. |
 | 2026-08-17 | 3.1 (live) | **First live acquisition ran.** After the user's GEE setup (auth token, project `gen-lang-client-0763527607`, API enabled), the pipeline exported two 2023 scenes to Drive: dry `LC09_191055_20221219` (0.02% cloud, `best_in_window`) and wet `LC08_191055_20231027` (35.4% cloud, `fallback_above_threshold` — no scene under the 15% ceiling in the wet window, deviation recorded per methodology). Both GEE tasks started (EAW3I7QMCI5DTVCJXONHZE6K, ZJWS5NXE7WZLPDDXQIJ4TDLX); metadata records + manifest written to `data/processed/imagery/` (gitignored). Fixes found during the live run: `ee.Geometry` needs the geometry dict not the FeatureCollection (`geometry_from_geojson`); merged-collection `system:index` gets a merge prefix, so the feature `id` (full asset path) is used (`extra.asset_id`) for loading/exporting; new earthengine-api client uses `ee.batch.Export.image.toDrive` (no `ee.Export`). |
 | 2026-08-17 | 3.1 | Reproducible Landsat acquisition workflow built in `remote_sensing/acquisition/`: `config.py` (single source of truth: LC08/LC09 C2 L2, path/row 191/055, cloud ceiling 15%, dry/wet seasonal windows, bands SR_B4-7 + ST_B10 + QA_PIXEL, UTM 31N, 30 m, COG), `search.py` (query builder + lowest-cloud selection with recorded `fallback_above_threshold` deviation per methodology §3.1), `export.py` (Drive COG export), `models.py` + `metadata.py` (per-scene JSON records + manifest in gitignored `data/processed/imagery/`), `pipeline.py` CLI (`--dry-run` needs no credentials). earthengine-api 1.7.39 installed in the project venv. Tests: 22 new (FakeEE stub in `tests/conftest.py`, no credentials needed) — query construction, selection/fallback, export params, metadata round-trip, dry-run. Verified `--dry-run` reads the Phase 2 Lagos boundary (bbox lon 2.7022–4.3508 / lat 6.3708–6.6984). Docs: `docs/06_landsat_acquisition.md`. Auth step for the user: `python -m earthengine authenticate`. Note: date/extent/cloud filtering and metadata are implemented as workflow capabilities (3.2/3.3/3.5 deepen/validate them); 3.6 (no imagery in Git) satisfied by existing gitignore. |
