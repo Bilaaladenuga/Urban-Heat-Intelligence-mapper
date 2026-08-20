@@ -28,18 +28,14 @@ const BAND_LABELS: Record<number, string> = {
   6: "QA_PIXEL",
 };
 
-const NDVI_BAND_LABELS: Record<number, string> = {
-  1: "NDVI",
-};
-
 const COLORMAP_OPTIONS = [
   { value: "", label: "Grayscale" },
   { value: "thermal", label: "Thermal" },
-  { value: "ndvi", label: "NDVI" },
+  { value: "ndvi", label: "NDVI colormap" },
 ];
 
 const NDVI_COLORMAP_OPTIONS = [
-  { value: "ndvi", label: "NDVI (brown-green)" },
+  { value: "ndvi", label: "NDVI (brown → green)" },
   { value: "", label: "Grayscale" },
 ];
 
@@ -146,7 +142,7 @@ function tileUrl(sceneId: string, band: number, colormap: string): string {
 // Get the effective band number for a scene type.
 function effectiveBand(scene: SceneInfo | null, band: number): number {
   if (!scene) return band;
-  if (scene.type === "ndvi") return 1; // NDVI is always band 1
+  if (scene.type === "ndvi") return 1;
   return band;
 }
 
@@ -166,13 +162,14 @@ export default function Home() {
   const [colormap, setColormap] = useState<string>("");
   const [opacity, setOpacity] = useState<number>(0.7);
   const [rasterVisible, setRasterVisible] = useState<boolean>(false);
+  const [rasterStatus, setRasterStatus] = useState<string>("idle");
 
   // Derived: the currently selected scene object.
   const activeScene = scenes.find((s) => s.scene_id === selectedScene) ?? null;
 
-  // Track the current raster source/layer to remove/re-add on change.
-  const rasterLayerId = "raster-layer";
-  const rasterSourceId = "raster-source";
+  // Use refs to avoid stale closures in the raster update effect.
+  const rasterStateRef = useRef({ rasterVisible, selectedScene, selectedBand, colormap, opacity, activeScene });
+  rasterStateRef.current = { rasterVisible, selectedScene, selectedBand, colormap, opacity, activeScene };
 
   // Initialize map.
   useEffect(() => {
@@ -263,41 +260,57 @@ export default function Home() {
     void onLoad();
   }, [mapReady]);
 
-  // Update the raster layer on the map when settings change.
-  const updateRasterLayer = useCallback(() => {
+  // Single effect to update the raster layer whenever any raster param changes.
+  // Uses refs to avoid stale-closure bugs.
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    // Remove existing raster layer/source if present.
-    if (map.getLayer(rasterLayerId)) map.removeLayer(rasterLayerId);
-    if (map.getSource(rasterSourceId)) map.removeSource(rasterSourceId);
+    const { rasterVisible: vis, selectedScene: scene, selectedBand: band, colormap: cm, opacity: op, activeScene: aScene } = rasterStateRef.current;
 
-    if (!rasterVisible || !selectedScene) return;
+    const rasterLayerId = "raster-layer";
+    const rasterSourceId = "raster-source";
 
-    // Add the raster tile source and layer.
-    const band = effectiveBand(activeScene, selectedBand);
-    const url = tileUrl(selectedScene, band, colormap);
-    map.addSource(rasterSourceId, {
-      type: "raster",
-      tiles: [url],
-      tileSize: 256,
-      maxzoom: 18,
-    });
-    map.addLayer({
-      id: rasterLayerId,
-      type: "raster",
-      source: rasterSourceId,
-      paint: { "raster-opacity": opacity },
-    });
-  }, [rasterVisible, selectedScene, selectedBand, colormap, opacity, mapReady, activeScene]);
+    // Always clean up first.
+    try {
+      if (map.getLayer(rasterLayerId)) map.removeLayer(rasterLayerId);
+    } catch { /* layer might not exist */ }
+    try {
+      if (map.getSource(rasterSourceId)) map.removeSource(rasterSourceId);
+    } catch { /* source might still be loading */ }
 
-  useEffect(() => {
-    updateRasterLayer();
-  }, [updateRasterLayer]);
+    if (!vis || !scene) {
+      setRasterStatus(!vis ? "hidden" : "no scene selected");
+      return;
+    }
+
+    // Small delay to ensure previous source is fully removed.
+    setTimeout(() => {
+      try {
+        const effBand = effectiveBand(aScene, band);
+        const url = tileUrl(scene, effBand, cm);
+        map.addSource(rasterSourceId, {
+          type: "raster",
+          tiles: [url],
+          tileSize: 256,
+          maxzoom: 18,
+        });
+        map.addLayer({
+          id: rasterLayerId,
+          type: "raster",
+          source: rasterSourceId,
+          paint: { "raster-opacity": op },
+        });
+        setRasterStatus(`showing ${scene} (band ${effBand}${cm ? ", " + cm : ""})`);
+      } catch (err) {
+        setRasterStatus(`error: ${String(err)}`);
+      }
+    }, 100);
+  }, [rasterVisible, selectedScene, selectedBand, colormap, opacity, mapReady]);
 
   return (
     <div className="relative flex flex-1 flex-col">
-      <header className="z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3">
+      <header className="z-20 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-3">
         <div>
           <h1 className="text-lg font-semibold text-zinc-900">
             Urban Heat Intelligence
@@ -323,13 +336,14 @@ export default function Home() {
       </header>
 
       <main className="relative flex-1">
+        {/* Map container — must be the lowest layer */}
         <div
           ref={mapContainer}
           className="bg-white"
           style={{ position: "absolute", inset: 0 }}
         />
 
-        {/* Legend + boundary info */}
+        {/* Legend panel — pointer-events-none lets map drag/scroll through */}
         <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-xs rounded-lg bg-white/90 p-3 text-xs text-zinc-700 shadow">
           <p className="font-medium text-zinc-900">Study area</p>
           <p className="mt-1">
@@ -364,48 +378,52 @@ export default function Home() {
               </span>
             </div>
           </div>
+        </div>
 
-          {/* Raster layer controls */}
-          {scenes.length > 0 && (
-            <div className="mt-3 border-t border-zinc-200 pt-2">
-              <p className="font-medium text-zinc-900">Raster layers</p>
-
-              <label className="mt-1 flex items-center gap-2">
+        {/* Raster controls — SEPARATE panel, NOT inside pointer-events-none */}
+        <div className="absolute bottom-4 right-4 z-10 w-64 rounded-lg bg-white p-3 text-xs text-zinc-700 shadow-lg border border-zinc-200">
+          <p className="font-medium text-zinc-900">Raster layers</p>
+          {scenes.length === 0 ? (
+            <p className="mt-1 text-zinc-400">Loading layers…</p>
+          ) : (
+            <>
+              <label className="mt-2 flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={rasterVisible}
                   onChange={(e) => setRasterVisible(e.target.checked)}
-                  className="h-3.5 w-3.5"
+                  className="h-4 w-4 cursor-pointer"
                 />
-                <span>Show raster</span>
+                <span className="font-medium">Show raster overlay</span>
               </label>
 
               {rasterVisible && (
-                <div className="mt-2 space-y-2">
-                  {/* Scene selector */}
+                <div className="mt-3 space-y-3">
+                  {/* Layer selector */}
                   <div>
-                    <label className="text-zinc-600">Layer</label>
+                    <label className="text-zinc-600 font-medium">Layer</label>
                     <select
                       value={selectedScene}
                       onChange={(e) => setSelectedScene(e.target.value)}
-                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      className="mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-xs"
                     >
                       {scenes.map((s) => (
                         <option key={s.scene_id} value={s.scene_id}>
-                          {s.scene_id.replace(/_/g, " ")} {s.type === "ndvi" ? "[NDVI]" : "[RGB]"}
+                          {s.scene_id.replace(/_/g, " ")}{" "}
+                          {s.type === "ndvi" ? "[NDVI]" : "[RGB]"}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Band selector (hidden for NDVI — single band) */}
+                  {/* Band selector — hidden for NDVI */}
                   {activeScene?.type !== "ndvi" && (
                     <div>
-                      <label className="text-zinc-600">Band</label>
+                      <label className="text-zinc-600 font-medium">Band</label>
                       <select
                         value={selectedBand}
                         onChange={(e) => setSelectedBand(Number(e.target.value))}
-                        className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                        className="mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-xs"
                       >
                         {Array.from({ length: 6 }, (_, i) => i + 1).map((b) => (
                           <option key={b} value={b}>
@@ -418,13 +436,16 @@ export default function Home() {
 
                   {/* Colormap */}
                   <div>
-                    <label className="text-zinc-600">Colormap</label>
+                    <label className="text-zinc-600 font-medium">Colormap</label>
                     <select
                       value={colormap}
                       onChange={(e) => setColormap(e.target.value)}
-                      className="mt-0.5 block w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs"
+                      className="mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-xs"
                     >
-                      {(activeScene?.type === "ndvi" ? NDVI_COLORMAP_OPTIONS : COLORMAP_OPTIONS).map((c) => (
+                      {(activeScene?.type === "ndvi"
+                        ? NDVI_COLORMAP_OPTIONS
+                        : COLORMAP_OPTIONS
+                      ).map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}
                         </option>
@@ -434,7 +455,7 @@ export default function Home() {
 
                   {/* Opacity slider */}
                   <div>
-                    <label className="text-zinc-600">
+                    <label className="text-zinc-600 font-medium">
                       Opacity: {Math.round(opacity * 100)}%
                     </label>
                     <input
@@ -444,12 +465,15 @@ export default function Home() {
                       step={0.05}
                       value={opacity}
                       onChange={(e) => setOpacity(Number(e.target.value))}
-                      className="mt-0.5 w-full"
+                      className="mt-1 w-full"
                     />
                   </div>
+
+                  {/* Status line */}
+                  <p className="text-zinc-400 italic">{rasterStatus}</p>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </main>
