@@ -115,9 +115,15 @@ def process_scene(
     # --- Step 1: Cloud masking ---
     t1 = time.perf_counter()
     with rasterio.open(src_path) as src:
+        # Read bands by name from raster metadata (handles any band count/ordering).
+        band_map = {}
+        for i in range(src.count):
+            desc = src.descriptions[i] if src.descriptions[i] else f"BAND_{i+1}"
+            band_map[desc] = i + 1
         bands_raw: dict[str, np.ndarray] = {}
-        for i, name in enumerate(BAND_NAMES, 1):
-            bands_raw[name] = src.read(i)
+        for name in ["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6", "SR_B7", "ST_B10", "QA_PIXEL"]:
+            if name in band_map:
+                bands_raw[name] = src.read(band_map[name])
 
     valid_mask, masked_bands = apply_cloud_mask(bands_raw)
     vpf = valid_pixel_fraction(valid_mask)
@@ -136,19 +142,21 @@ def process_scene(
 
         # Write masked bands temporarily for clipping.
         tmp_masked_path = dst_dir / f"{scene_id}_masked.tif"
+        out_band_names = list(bands_raw.keys())
         if not dry_run:
             dst_dir.mkdir(parents=True, exist_ok=True)
             with rasterio.open(src_path) as src:
                 meta = src.meta.copy()
-                meta.update({"count": len(BAND_NAMES), "nodata": 0})
+                meta.update({"count": len(out_band_names), "nodata": 0})
                 with rasterio.open(tmp_masked_path, "w", **meta) as tmp:
-                    for i, name in enumerate(BAND_NAMES, 1):
+                    for i, name in enumerate(out_band_names, 1):
                         if name in masked_bands:
                             tmp.write(masked_bands[name], i)
                         else:
                             qa = bands_raw[name].copy()
                             qa[~valid_mask] = 0
                             tmp.write(qa, i)
+                        tmp.set_band_description(i, name)
 
             clip_meta = clip_raster(tmp_masked_path, geometries, dst_path, nodata=0)
             record["steps"]["2_clip"] = clip_meta
@@ -158,19 +166,21 @@ def process_scene(
             record["steps"]["2_clip"] = {"dry_run": True, "geometries_loaded": len(geometries)}
     else:
         # No clipping — write cloud-masked bands directly as output.
+        out_band_names = list(bands_raw.keys())
         if not dry_run:
             dst_dir.mkdir(parents=True, exist_ok=True)
             with rasterio.open(src_path) as src:
                 meta = src.meta.copy()
-                meta.update({"count": len(BAND_NAMES), "nodata": 0})
+                meta.update({"count": len(out_band_names), "nodata": 0})
                 with rasterio.open(dst_path, "w", **meta) as dst:
-                    for i, name in enumerate(BAND_NAMES, 1):
+                    for i, name in enumerate(out_band_names, 1):
                         if name in masked_bands:
                             dst.write(masked_bands[name], i)
                         else:
                             qa = bands_raw[name].copy()
                             qa[~valid_mask] = 0
                             dst.write(qa, i)
+                        dst.set_band_description(i, name)
             record["steps"]["2_clip"] = {"skipped": True, "reason": "--no-clip: keeping full scene extent"}
             print("  Clip: SKIPPED (--no-clip: keeping full scene extent)")
         else:
@@ -195,7 +205,10 @@ def process_scene(
     t4 = time.perf_counter()
     if not dry_run and dst_path.exists():
         with rasterio.open(dst_path) as dst:
-            out_bands = {BAND_NAMES[i]: dst.read(i + 1) for i in range(len(BAND_NAMES))}
+            out_bands = {}
+            for i in range(dst.count):
+                name = dst.descriptions[i] if dst.descriptions[i] else f"BAND_{i+1}"
+                out_bands[name] = dst.read(i + 1)
         validation = validate_all_bands(out_bands)
         summary = nodata_summary(valid_mask)
         record["validation"] = {"bands": validation, "nodata_summary": summary}

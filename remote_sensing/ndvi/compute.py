@@ -145,8 +145,13 @@ def ndvi_from_scene(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with rasterio.open(scene_path) as src:
-        red = src.read(BAND_RED)
-        nir = src.read(BAND_NIR)
+        # Read bands by name from raster metadata (handles any band count/ordering).
+        band_map = {}
+        for i in range(src.count):
+            desc = src.descriptions[i] if src.descriptions[i] else f"BAND_{i+1}"
+            band_map[desc] = i + 1
+        red = src.read(band_map["SR_B4"])
+        nir = src.read(band_map["SR_B5"])
 
         ndvi = compute_ndvi(red, nir, nodata=nodata)
 

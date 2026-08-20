@@ -116,7 +116,7 @@ if (bestImage === null) {
   Map.addLayer(LAGOS_BUFFERED, {color: 'yellow'}, 'Lagos buffer');
 
   // Run export.
-  var task = ee.batch.Export.image.toDrive({
+  Export.image.toDrive({
     image: clipped,
     description: description,
     folder: DRIVE_FOLDER,
@@ -129,9 +129,10 @@ if (bestImage === null) {
     formatOptions: {cloudOptimized: true}
   });
 
-  task.start();
+  // In the Code Editor, the task is submitted automatically.
+  // Go to the Tasks tab (right side) to monitor/download.
   print('');
-  print('Export started!');
+  print('Export submitted!');
   print('Monitor at: https://code.earthengine.google.com/tasks');
   print('');
   print('NEXT STEPS:');
