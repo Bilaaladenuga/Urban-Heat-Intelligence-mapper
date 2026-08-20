@@ -72,6 +72,7 @@ def process_scene(
     scene_dir: pathlib.Path,
     *,
     dry_run: bool = False,
+    clip: bool = True,
 ) -> dict:
     """Run the full preprocessing pipeline on one scene.
 
@@ -128,34 +129,52 @@ def process_scene(
     print(f"  Cloud mask: {vpf * 100:.1f}% valid pixels")
     record["timing"]["cloud_mask_s"] = round(time.perf_counter() - t1, 3)
 
-    # --- Step 2: Clipping ---
+    # --- Step 2: Clipping (optional) ---
     t2 = time.perf_counter()
-    geometries = load_boundary(GEOMETRY_SOURCE, target_crs=grid["crs"])
+    if clip:
+        geometries = load_boundary(GEOMETRY_SOURCE, target_crs=grid["crs"])
 
-    # Write masked bands temporarily for clipping.
-    tmp_masked_path = dst_dir / f"{scene_id}_masked.tif"
-    if not dry_run:
-        dst_dir.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(src_path) as src:
-            meta = src.meta.copy()
-            meta.update({"count": len(BAND_NAMES), "nodata": 0})
-            with rasterio.open(tmp_masked_path, "w", **meta) as tmp:
-                for i, name in enumerate(BAND_NAMES, 1):
-                    if name in masked_bands:
-                        tmp.write(masked_bands[name], i)
-                    else:
-                        # QA_PIXEL is not in masked_bands — keep it unmasked
-                        # for reference, but mark masked pixels as 0.
-                        qa = bands_raw[name].copy()
-                        qa[~valid_mask] = 0
-                        tmp.write(qa, i)
+        # Write masked bands temporarily for clipping.
+        tmp_masked_path = dst_dir / f"{scene_id}_masked.tif"
+        if not dry_run:
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            with rasterio.open(src_path) as src:
+                meta = src.meta.copy()
+                meta.update({"count": len(BAND_NAMES), "nodata": 0})
+                with rasterio.open(tmp_masked_path, "w", **meta) as tmp:
+                    for i, name in enumerate(BAND_NAMES, 1):
+                        if name in masked_bands:
+                            tmp.write(masked_bands[name], i)
+                        else:
+                            qa = bands_raw[name].copy()
+                            qa[~valid_mask] = 0
+                            tmp.write(qa, i)
 
-        clip_meta = clip_raster(tmp_masked_path, geometries, dst_path, nodata=0)
-        record["steps"]["2_clip"] = clip_meta
-        print(f"  Clip: {clip_meta['pixels_removed']:,} pixels removed")
-        tmp_masked_path.unlink(missing_ok=True)
+            clip_meta = clip_raster(tmp_masked_path, geometries, dst_path, nodata=0)
+            record["steps"]["2_clip"] = clip_meta
+            print(f"  Clip: {clip_meta['pixels_removed']:,} pixels removed")
+            tmp_masked_path.unlink(missing_ok=True)
+        else:
+            record["steps"]["2_clip"] = {"dry_run": True, "geometries_loaded": len(geometries)}
     else:
-        record["steps"]["2_clip"] = {"dry_run": True, "geometries_loaded": len(geometries)}
+        # No clipping — write cloud-masked bands directly as output.
+        if not dry_run:
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            with rasterio.open(src_path) as src:
+                meta = src.meta.copy()
+                meta.update({"count": len(BAND_NAMES), "nodata": 0})
+                with rasterio.open(dst_path, "w", **meta) as dst:
+                    for i, name in enumerate(BAND_NAMES, 1):
+                        if name in masked_bands:
+                            dst.write(masked_bands[name], i)
+                        else:
+                            qa = bands_raw[name].copy()
+                            qa[~valid_mask] = 0
+                            dst.write(qa, i)
+            record["steps"]["2_clip"] = {"skipped": True, "reason": "--no-clip: keeping full scene extent"}
+            print("  Clip: SKIPPED (--no-clip: keeping full scene extent)")
+        else:
+            record["steps"]["2_clip"] = {"dry_run": True, "skipped": True}
 
     record["timing"]["clip_s"] = round(time.perf_counter() - t2, 3)
 
@@ -195,6 +214,7 @@ def run_pipeline(
     year: int | None = None,
     scene_id: str | None = None,
     dry_run: bool = False,
+    clip: bool = True,
 ) -> list[dict]:
     """Run preprocessing on one or all scenes.
 
@@ -231,7 +251,7 @@ def run_pipeline(
             print(f"  SKIP: {scene_dir} is not a directory")
             continue
         print(f"\nProcessing: {scene_dir.name}")
-        record = process_scene(scene_dir, dry_run=dry_run)
+        record = process_scene(scene_dir, dry_run=dry_run, clip=clip)
         records.append(record)
 
     return records
@@ -248,6 +268,7 @@ def main() -> None:
     parser.add_argument("--year", type=int, help="Process all scenes for this year")
     parser.add_argument("--scene", type=str, nargs="+", help="Process one or more scenes by ID")
     parser.add_argument("--dry-run", action="store_true", help="Validate only")
+    parser.add_argument("--no-clip", action="store_true", help="Skip boundary clipping — keep full scene extent")
     args = parser.parse_args()
 
     if not args.year and not args.scene:
@@ -260,6 +281,7 @@ def main() -> None:
         year=args.year,
         scene_id=args.scene,
         dry_run=args.dry_run,
+        clip=not args.no_clip,
     )
 
     if records:
