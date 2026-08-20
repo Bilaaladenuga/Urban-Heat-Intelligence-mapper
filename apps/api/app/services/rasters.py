@@ -131,6 +131,43 @@ def _percentile_stretch(
     return vmin, vmax
 
 
+# Cache for global stretch values per scene+band.
+_global_stretch_cache: dict[str, tuple[float, float]] = {}
+
+
+def get_global_stretch(
+    scene_id: str,
+    band: int = 1,
+    low: float = STRETCH_LOW,
+    high: float = STRETCH_HIGH,
+) -> tuple[float, float]:
+    """Compute the global stretch range for a scene by sampling the full raster.
+
+    This is cached so subsequent tile requests use the same vmin/vmax,
+    giving consistent visualization across all tiles.
+    """
+    cache_key = f"{scene_id}:{band}:{low}:{high}"
+    if cache_key in _global_stretch_cache:
+        return _global_stretch_cache[cache_key]
+
+    tif_path = get_scene_path(scene_id)
+    if not tif_path.exists():
+        return (0.0, 1.0)
+
+    with rasterio.open(tif_path) as src:
+        is_float = np.issubdtype(np.dtype(src.dtypes[band - 1]), np.floating)
+        # Read a subsampled version for speed (every 10th pixel).
+        data = src.read(
+            band,
+            out_shape=(max(1, src.height // 10), max(1, src.width // 10)),
+            resampling=Resampling.nearest,
+        )
+        vmin, vmax = _percentile_stretch(data, low, high, is_float=is_float)
+
+    _global_stretch_cache[cache_key] = (vmin, vmax)
+    return vmin, vmax
+
+
 def _band_to_rgba(
     band: np.ndarray,
     vmin: float,
@@ -268,8 +305,8 @@ def render_tile(
             resampling=Resampling.bilinear,
         )
 
-    # Stretch and convert to RGBA.
-    vmin, vmax = _percentile_stretch(tile_data, is_float=is_float)
+    # Use global stretch (cached) for consistent visualization across all tiles.
+    vmin, vmax = get_global_stretch(scene_id, band=band)
     rgba = _band_to_rgba(tile_data, vmin, vmax, colormap=colormap, is_float=is_float)
 
     # Encode as PNG.
